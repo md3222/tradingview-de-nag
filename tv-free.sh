@@ -328,9 +328,10 @@ MAIN="$WORK/app/index.js"
 [ -f "$PRE" ] || { echo "unexpected app layout: missing $PRE" >&2; exit 1; }
 [ -f "$MAIN" ] || { echo "unexpected app layout: missing $MAIN" >&2; exit 1; }
 
+ALREADY=0
 if grep -q "__tvPaywallGuardInstalled" "$PRE" && grep -q "__tvTrialNotify" "$MAIN"; then
-  echo "already patched; nothing to do"
-  exit 0
+  echo "    app already patched; skipping to the hosts step"
+  ALREADY=1
 fi
 
 # Native modules live in app.asar.unpacked. When extracting a backup archive,
@@ -345,6 +346,7 @@ for f in native/tvdbridge.node keytar.node build/Release/classic_level.node; do
   fi
 done
 
+if [ "$ALREADY" -eq 0 ]; then
 echo "[2/7] appending page guard/watcher to preload"
 node - "$WORK/paywall-guard-page.js" "$PRE" <<'NODE'
 const fs = require('fs');
@@ -385,6 +387,7 @@ echo "[6/7] installing app.asar (root)"
 BAK="$APP.bak.$(date +%Y%m%d-%H%M%S)"
 as_root "set -e; cp -a '$APP' '$BAK'; cp '$WORK/app.asar' '$APP.tmp'; chmod 644 '$APP.tmp'; if [ \"\$(id -u)\" -eq 0 ]; then chown root:root '$APP.tmp'; fi; mv -f '$APP.tmp' '$APP'"
 echo "    backup: $BAK"
+fi
 
 if [ "$DO_ADS" -eq 1 ]; then
   echo "[7/7] /etc/hosts ad sinkhole"
@@ -420,4 +423,5 @@ fi
 
 echo
 echo "Done. Restart TradingView for the new preload/main bundle to load."
-echo "Undo asar: install $BAK back over $APP (or apt reinstall tradingview)."
+[ "$ALREADY" -eq 0 ] && echo "Undo asar: install $BAK back over $APP (or apt reinstall tradingview)."
+exit 0

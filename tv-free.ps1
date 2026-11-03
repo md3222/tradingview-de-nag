@@ -109,6 +109,16 @@ $markerEnd
   & ipconfig /flushdns | Out-Null
 }
 
+# Refuse to wipe anything that is not empty or an earlier patched copy (-Dest is user input).
+function Assert-SafeDest {
+  if (-not (Test-Path $Dest)) { return }
+  $isCopy = Test-Path (Join-Path $Dest 'TradingView.exe')
+  $isEmpty = -not (Get-ChildItem -LiteralPath $Dest -Force | Select-Object -First 1)
+  if (-not ($isCopy -or $isEmpty)) {
+    throw "Refusing to delete $Dest : it is not empty and has no TradingView.exe. Pick another -Dest."
+  }
+}
+
 function Get-TradingViewPackage {
   $pkg = Get-AppxPackage -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -like '*TradingView*' } |
@@ -123,6 +133,7 @@ if ($Revert) {
   $running = Get-Process TradingView -ErrorAction SilentlyContinue |
     Where-Object { $_.Path -and $_.Path.StartsWith($Dest, [StringComparison]::OrdinalIgnoreCase) }
   if ($running) { $running | Stop-Process -Force; Start-Sleep -Seconds 3 }
+  Assert-SafeDest
   if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force }
   Remove-Item (Join-Path ([Environment]::GetFolderPath('Desktop')) $shortcutName) -Force -ErrorAction SilentlyContinue
   if (Test-Admin) {
@@ -154,6 +165,7 @@ if ($running) {
 }
 
 Write-Host "[3/7] copying package to $Dest"
+Assert-SafeDest
 if (Test-Path $Dest) { Remove-Item $Dest -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $Dest | Out-Null
 $null = robocopy $src $Dest /E /R:1 /W:1 /NFL /NDL /NJH /NJS

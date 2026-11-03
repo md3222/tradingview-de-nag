@@ -9,7 +9,8 @@ Remove the free-tier nagware from the **TradingView desktop app** (Linux and Win
 
 Tested on Linux `tradingview 3.5.0-1` (deb, Electron 41.7.1) and Windows MSIX `TradingView.Desktop_3.5.0.8375_x64` (Windows 11).
 
-It does **not** unlock paid data or features. A 2m chart still falls back to 3m; entitlements remain whatever the server grants.
+It does **not** unlock paid data. A 2m chart still falls back to 3m; entitlements remain whatever the server grants.
+The desktop paywall is TradingView's paid-plan gate on the desktop app itself (`tvd_paid_only_access`), so removing it breaks their terms and can get the account closed.
 
 | Before | After |
 |---|---|
