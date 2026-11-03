@@ -12,9 +12,17 @@ Tested on Linux `tradingview 3.5.0-1` (deb, Electron 41.7.1) and Windows MSIX `T
 It does **not** unlock paid data. A 2m chart still falls back to 3m; entitlements remain whatever the server grants.
 The desktop paywall is TradingView's paid-plan gate on the desktop app itself (`tvd_paid_only_access`), so removing it breaks their terms and can get the account closed.
 
-| Before | After |
-|---|---|
-| ![Unclosable paywall](docs/unclosable-paywall.png) | ![No paywall](docs/after-fix.png) |
+## What it does, in plain terms
+
+| Annoyance | What you see without it | How it's removed |
+|---|---|---|
+| Desktop paywall | About 2 minutes after a chart opens, an "Analyze markets in TradingView Desktop / Upgrade now" box covers the chart. It has no close button and live data stops while it is up. | A small script added to the app's startup file switches off the app's own flag for that box (`tvd_paid_only_access`) and tells the app's popup system to drop it. |
+| Custom-interval upsell | Picking 2m, 7m, 30s or tick pops an "upgrade for custom intervals" box. | The same popup filter drops that box. The chart falls back to the nearest interval your plan allows (2m becomes 3m). |
+| Ad toast | Google ads pop up in the corner of the chart. | Optional: 8 Google ad servers are pointed at nowhere in the hosts file, so the ads never load. |
+| Trial watcher | Nothing. | Optional extra: every 5 minutes it checks whether your account is offered a free trial and shows a desktop notification if so. Read-only. |
+
+The script unpacks the app's `app.asar` bundle, appends that code, packs it back, and keeps a backup of the original.
+On Windows it patches a copy of the Store app in your user folder; the Store install stays untouched.
 
 ## Quick start
 
