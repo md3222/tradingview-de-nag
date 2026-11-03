@@ -304,3 +304,18 @@ or `sudo apt reinstall tradingview`.
 - It does not grant entitlements. 2m still isn't permitted server-side; the chart still falls back.
 - It does not alter `available_offers`, the rollout bucket, or checkout.
 - The trial watcher only reads `/api/v1/offers/` and notifies if the server ever returns a `trial` offer.
+
+---
+
+## 8. Windows (MSIX) packaging
+
+The Windows app is an MSIX package under `C:\Program Files\WindowsApps`, owned by SYSTEM/TrustedInstaller and read-only for users. The same page bootstrap and wall interceptor apply, but the packaging step is different:
+
+- Copy the installed package to `%LOCALAPPDATA%\TradingView-Patched` with `robocopy`.
+- Patch that copy's `resources\app.asar`; leave the Store package untouched.
+- Run the patch helper with the copied `TradingView.exe` and `ELECTRON_RUN_AS_NODE=1` (no Node install needed; the `RunAsNode` fuse is enabled).
+- The tested builds have `EnableEmbeddedAsarIntegrityValidation: Disabled`, so the patched asar loads.
+
+**Gotcha:** Electron patches `fs` to treat every `*.asar` path as an archive. When `TradingView.exe` runs as Node, `fs.openSync("...\\app.asar")` is intercepted and fails with `ENOENT`. The helper sets `process.noAsar = true` before reading or writing the archive.
+
+Details, usage, verification and caveats: [WINDOWS.md](WINDOWS.md).

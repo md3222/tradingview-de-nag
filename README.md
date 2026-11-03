@@ -1,13 +1,13 @@
 # tradingview-de-nag
 
-Remove the free-tier nagware from the **TradingView Linux desktop app**:
+Remove the free-tier nagware from the **TradingView desktop app** (Linux and Windows):
 
 - the unclosable **"Analyze markets in TradingView Desktop"** paywall (120 s after chart start, no close button, blocks the data connection while open)
 - the **"custom intervals"** upsell on 2m / 7m / 30s / tick and other non-standard timeframes
 - the **Google Ad Manager** toast in the chart
 - *optional:* a passive watcher that notifies if the server ever offers a trial
 
-Tested on `tradingview 3.5.0-1` (deb), Electron 41.7.1, Chromium 146.0.7680.216.
+Tested on Linux `tradingview 3.5.0-1` (deb, Electron 41.7.1) and Windows MSIX `TradingView.Desktop_3.5.0.8375_x64` (Windows 11).
 
 It does **not** unlock paid data or features. A 2m chart still falls back to 3m; entitlements remain whatever the server grants.
 
@@ -29,12 +29,36 @@ SUDO=sudo-gui ./tv-free.sh   # optional askpass helper
 
 Restart TradingView. Re-run the script after every app update, because the package replaces `app.asar`.
 
+### Windows (MSIX / Store build)
+
+```powershell
+git clone https://github.com/md3222/tradingview-de-nag.git
+cd tradingview-de-nag
+
+.\tv-free.ps1                 # copy the MSIX package + patch the copy
+.\tv-free.ps1 -NoAds          # app patch only
+.\tv-free.ps1 -Revert         # undo
+```
+
+The Windows build lives in `C:\Program Files\WindowsApps` (SYSTEM/TrustedInstaller, read-only). The script copies the MSIX package to `%LOCALAPPDATA%\TradingView-Patched`, patches that copy, and leaves the Store app untouched. No admin for the app patch; admin only for the optional hosts sinkhole. Sign in once in the patched copy.
+
+Full details, verification and caveats: [WINDOWS.md](WINDOWS.md).
+
 ## Requirements
 
-- Linux, TradingView desktop installed from the deb (default `/opt/TradingView/resources/app.asar`). For another path: `--app=/path/to/app.asar`.
+**Linux**
+
+- TradingView desktop installed from the deb (default `/opt/TradingView/resources/app.asar`). For another path: `--app=/path/to/app.asar`.
 - `node` (any recent version).
 - `sudo` (or `SUDO=...`), because `app.asar` and `/etc/hosts` are root-owned.
 - No network: `tv-free.sh` embeds a minimal ASAR reader/writer.
+
+**Windows**
+
+- Windows 10/11 + Windows PowerShell 5.1.
+- TradingView installed from the Store or the official MSIX.
+- No admin for the app patch; admin only for `/etc/hosts`.
+- No Node install; `tv-free.ps1` runs the copied `TradingView.exe` as Node (`ELECTRON_RUN_AS_NODE=1`).
 
 ## What it changes
 
@@ -44,7 +68,9 @@ Restart TradingView. Re-run the script after every app update, because the packa
 | `resources/app.asar` → `index.js` | appends a `tvd:set-notification` handler that shows a native Electron notification for the trial watcher |
 | `/etc/hosts` (optional) | sinkhole for 8 Google ad domains, IPv4 and IPv6 |
 
-The script backs up the old asar as `app.asar.bak.<timestamp>`, verifies the native `.node` files stay unpacked, installs atomically, and is idempotent.
+The Linux script backs up the old asar as `app.asar.bak.<timestamp>`, verifies the native `.node` files stay unpacked, installs atomically, and is idempotent.
+
+On Windows, `tv-free.ps1` copies the installed MSIX package to `%LOCALAPPDATA%\TradingView-Patched` and patches that copy. The `WindowsApps` package is never modified; re-run the script after a Store update to refresh the copy.
 
 ## How it works
 
@@ -83,9 +109,11 @@ node tools/cdp.js "$WS" 'document.body.innerText.includes("custom intervals")'  
 
 Expected: fallback to an allowed interval, no modal, and no paywall after 120 s.
 
+**Windows:** see the [Windows verification section](WINDOWS.md#verify). Start the patched copy with `--remote-debugging-port=9222`, then run `tools/tvcheck.js` with the same exe as Node.
+
 ## Revert
 
-The script prints the backup path. Restore it:
+Linux — the script prints the backup path. Restore it:
 
 ```bash
 sudo install -o root -g root -m 644 \
@@ -95,14 +123,17 @@ sudo install -o root -g root -m 644 \
 
 or `sudo apt reinstall tradingview`.
 
+Windows — `.\tv-free.ps1 -Revert` (or delete `%LOCALAPPDATA%\TradingView-Patched` and the shortcut).
+
 Remove the hosts block between `# >>> tradingview-free sinkhole` and `# <<< tradingview-free sinkhole`.
 
 ## Limitations
 
 - Server-side entitlements are untouched. Non-standard intervals still fall back; this only removes the modal.
 - If the app layout or version changes, the script fails before installing (it checks for `preload/platform-preload.js` and `index.js`).
-- The tested build has ASAR integrity fuses disabled (`EnableEmbeddedAsarIntegrityValidation: Disabled`). If a future build enables them, the patched asar will not load — restore the backup.
-- `app.asar` becomes a modified package file; `dpkg -V tradingview` will list it.
+- The tested builds have ASAR integrity fuses disabled (`EnableEmbeddedAsarIntegrityValidation: Disabled`). If a future build enables them, the patched asar will not load — restore the backup.
+- Windows: the patched copy is a snapshot, not the Store app. It does not auto-update, and it has no MSIX package identity (native notifications from the watcher may not show). Re-run `tv-free.ps1` after Store updates.
+- Linux: `app.asar` becomes a modified package file; `dpkg -V tradingview` will list it.
 - Not affiliated with TradingView. Use on your own installation and check the terms that apply to you.
 
 ## License
